@@ -8,3 +8,4 @@
 
 # Docker volumes if mounted locally
 db-data/
+semgrep-*.json

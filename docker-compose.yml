@@ -1,26 +1,23 @@
-# Architecture: single-container setup.
-# The official webgoat/webgoat image bundles WebGoat (port 8080) and its WebWolf
-# companion service (port 9090) together, using WebGoat's own embedded database
-# for user accounts and lesson progress.
+# Custom-built image containing our secure-coding fixes (see WebGoat/Dockerfile).
+# Built locally from the patched source in ./WebGoat -- NOT pulled from Docker Hub.
 #
-# This satisfies the assignment's componentry requirement per the module's own
-# Appendix A, which lists WebGoat's components as "Web app + embedded database".
-#
-# NOTE: An external PostgreSQL container was tried and rejected -- the official
-# webgoat/webgoat image does not ship the PostgreSQL JDBC driver on its classpath,
-# so it cannot connect to an external Postgres database without a custom-built
-# image. Not worth the added complexity for this assignment; documented here so
-# the choice is traceable in the report's reflection section.
+# To build/rebuild after further code changes:
+#   docker compose build
+# To build and start in one step:
+#   docker compose up -d --build
 
 services:
   webgoat:
-    image: webgoat/webgoat
+    build:
+      context: ./WebGoat
+      dockerfile: Dockerfile
+    image: webgoat-custom:latest
     container_name: webgoat
     environment:
       TZ: ${APP_TZ:-Asia/Colombo}
     ports:
-      - "127.0.0.1:8080:8080"
-      - "127.0.0.1:9090:9090"
+      - "18080:8080"
+      - "19090:9090"
     volumes:
       - webgoat_data:/home/webgoat/.webgoat
 
