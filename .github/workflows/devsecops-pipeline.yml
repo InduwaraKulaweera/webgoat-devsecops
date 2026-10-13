@@ -55,11 +55,22 @@ jobs:
 
       - name: OWASP Dependency-Check
         working-directory: ./WebGoat
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           chmod +x mvnw
+          mvn_args=()
+          if [ -n "${NVD_API_KEY}" ]; then
+            mvn_args+=("-DnvdApiKey=${NVD_API_KEY}")
+          else
+            unset NVD_API_KEY
+            echo "NVD_API_KEY is not set; running dependency-check without API key."
+          fi
+
           ./mvnw org.owasp:dependency-check-maven:check \
             -DfailBuildOnCVSS=9 \
-            -Dformat=HTML
+            -Dformat=HTML \
+            "${mvn_args[@]}"
 
       - name: Upload dependency-check report
         if: always()
