@@ -53,13 +53,16 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
-      - name: OWASP Dependency-Check
-        working-directory: ./WebGoat
-        run: |
-          chmod +x mvnw
-          ./mvnw org.owasp:dependency-check-maven:check \
-            -DfailBuildOnCVSS=9 \
-            -Dformat=HTML
+     - name: OWASP Dependency-Check
+  working-directory: ./WebGoat
+  env:
+    NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+  run: |
+    chmod +x mvnw
+    ./mvnw org.owasp:dependency-check-maven:check \
+      -Dnvd.api.key="$NVD_API_KEY" \
+      -DfailBuildOnCVSS=9 \
+      -Dformat=HTML
 
       - name: Upload dependency-check report
         if: always()
