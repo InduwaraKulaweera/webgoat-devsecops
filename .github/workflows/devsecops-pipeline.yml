@@ -53,16 +53,22 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
-     - name: OWASP Dependency-Check
-  working-directory: ./WebGoat
-  env:
-    NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-  run: |
-    chmod +x mvnw
-    ./mvnw org.owasp:dependency-check-maven:check \
-      -Dnvd.api.key="$NVD_API_KEY" \
-      -DfailBuildOnCVSS=9 \
-      -Dformat=HTML
+   
+      - name: OWASP Dependency-Check
+        working-directory: ./WebGoat
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "ERROR: NVD API key is empty"
+            exit 1
+          fi
+
+          chmod +x mvnw
+          ./mvnw org.owasp:dependency-check-maven:13.0.0:check \
+            -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
+            -DfailBuildOnCVSS=9 \
+            -Dformat=HTML
 
       - name: Upload dependency-check report
         if: always()
