@@ -67,6 +67,8 @@ jobs:
           chmod +x mvnw
           ./mvnw org.owasp:dependency-check-maven:13.0.0:check \
             -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
+            -DskipTestScope=true \
+            -DsuppressionFiles=config/dependency-check/project-suppression.xml \
             -DfailBuildOnCVSS=9 \
             -Dformat=HTML
 

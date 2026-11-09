@@ -74,4 +74,16 @@
         <packageUrl regex="true">^pkg:maven/org\.springframework/spring\-.*@.*$</packageUrl>
         <cve>CVE-2016-1000027</cve>
      </suppress>
+    <suppress>
+       <notes><![CDATA[
+       prism-parser-api is falsely matched to historical Ruby CVEs by CPE.
+       ]]></notes>
+       <packageUrl regex="true">^pkg:maven/org\.ruby-lang/prism\-parser\-api@.*$</packageUrl>
+       <vulnerabilityName>CVE-2008-2662</vulnerabilityName>
+       <vulnerabilityName>CVE-2008-2663</vulnerabilityName>
+       <vulnerabilityName>CVE-2018-8780</vulnerabilityName>
+       <vulnerabilityName>CVE-2017-10784</vulnerabilityName>
+       <vulnerabilityName>CVE-2017-14064</vulnerabilityName>
+       <vulnerabilityName>CVE-2017-9225</vulnerabilityName>
+    </suppress>
 </suppressions>
