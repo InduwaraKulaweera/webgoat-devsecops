@@ -10,3 +10,9 @@
 db-data/
 semgrep-*.json
 WebGoat/target/
+
+# Build / scratch output that should never be committed
+Gitpush/
+WebGoat/effective-pom
+WebGoat/effective-pom.xml
+**/target/

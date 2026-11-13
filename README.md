@@ -37,7 +37,11 @@
 | 1 | SQL Injection | `SqlInjectionLesson9` | Parameterised query (`PreparedStatement`) |
 | 2 | Reflected XSS | `CrossSiteScriptingLesson5a` | Output encoding (`HtmlUtils.htmlEscape`) |
 | 3 | XXE | `SimpleXXE` / `CommentsCache` | Enabled DTD/external-entity restrictions |
-| 4 | IDOR | *(see report for class/fix details)* | Server-side ownership check |
+| 4 | IDOR | `IDORViewOtherProfile`, `IDOREditOtherProfile` | Server-side ownership check: the requested `userId` (path, and body for PUT) must equal the authenticated user's id from the session, otherwise the request is rejected |
+
+> **Security note:** `docker-compose.yml` publishes the ports on `127.0.0.1` only.
+> WebGoat is intentionally vulnerable, so it should never be reachable from other
+> machines on your network.
 
 ## Prerequisites
 - Docker + Docker Compose installed
@@ -85,7 +89,36 @@ docker compose down          # stop containers, keep progress data
 docker compose down -v       # stop containers and wipe all data
 ```
 
+## CI/CD pipeline (`.github/workflows/devsecops-pipeline.yml`)
+Runs on every push and pull request to `main`.
+
+| Stage | Tool | What it checks | Fails the job when |
+|---|---|---|---|
+| Build & Test | Maven wrapper, JDK 25 | The patched source compiles and packages | The build fails |
+| Gate 1 - SAST | Semgrep (`config: auto`) | Insecure code patterns in the source | The Semgrep action reports a blocking result |
+| Gate 2 - SCA | OWASP Dependency-Check | Known CVEs in dependencies | A dependency has CVSS >= 9, or `NVD_API_KEY` is missing |
+| Gate 3 - Secrets | Gitleaks (full history) | Committed credentials | A secret is detected |
+| Gate 4 - Container | Trivy | CRITICAL/HIGH CVEs in the built image | Any CRITICAL/HIGH finding (`exit-code: 1`) |
+
+Notes on how the gates behaved during development:
+- Gate 4 (Trivy) blocked the pipeline on real dependency vulnerabilities. They were
+  fixed by pinning newer Jackson, Tomcat and Guava versions in `WebGoat/pom.xml`.
+- Gate 2 first failed because no NVD API key was passed to the plugin (a
+  configuration error, not a finding). The key now comes from the `NVD_API_KEY`
+  GitHub Actions secret.
+- Semgrep OSS has no IDOR rule, and the XXE "before" finding was a CSRF-related
+  rule, so for those two lessons the functional exploit test is the primary
+  proof of the fix, not the Semgrep count.
+
+## Known limitations
+- The IDOR fix compares against a lesson-session value. A real application would
+  take the identity from its authentication principal (for example Spring Security).
+- Only the four lessons above were fixed. WebGoat contains many other
+  intentionally vulnerable lessons that remain unchanged.
+- No DAST stage (for example OWASP ZAP) yet.
+
 ## Secrets management (see report Section 2.5)
 - No credentials are hardcoded in `docker-compose.yml` or any source file.
 - Local development config lives only in `.env`, which is git-ignored.
-- CI/CD pipeline secrets are provisioned via GitHub Actions encrypted secrets (see `.github/workflows/`).
+- CI/CD secrets (`NVD_API_KEY`) are GitHub Actions encrypted secrets, read in the workflow via `${{ secrets.NVD_API_KEY }}` and never written to the repository.
+- Gitleaks scans the full git history on every run.
