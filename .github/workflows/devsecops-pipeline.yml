@@ -66,14 +66,15 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          if [ -z "$NVD_API_KEY" ]; then
+          KEY="$(printf '%s' "$NVD_API_KEY" | tr -d '[:space:]')"
+          if [ -z "$KEY" ]; then
             echo "ERROR: NVD API key is empty"
             exit 1
           fi
 
           chmod +x mvnw
           ./mvnw org.owasp:dependency-check-maven:13.0.0:check \
-            -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
+            -DnvdApiKey="$KEY" \
             -DfailBuildOnCVSS=9 \
             -Dformat=HTML
 
