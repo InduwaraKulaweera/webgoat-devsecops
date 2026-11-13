@@ -110,6 +110,16 @@ Notes on how the gates behaved during development:
   rule, so for those two lessons the functional exploit test is the primary
   proof of the fix, not the Semgrep count.
 
+Dependency-Check findings handled after the first full scan (CVSS >= 9 blocks the build):
+- `underscore` 1.10.2 (bundled UI library, CVE-2021-23358 / CVE-2026-27601) was
+  upgraded to 1.13.8 in `static/js/libs/underscore-min.js`.
+- `prism-parser-api` (a Java Ruby-parser library pulled in via asciidoctorj/jruby) was
+  matched by name to the Ruby *interpreter* CPE, giving 2008 Ruby CVEs. This is a
+  false positive and is suppressed narrowly in `WebGoat/dependency-check-suppressions.xml`
+  with the reason documented. No other finding is suppressed and the CVSS 9 threshold is unchanged.
+- Lower-severity findings (old jQuery, jQuery UI, Bootstrap 3 bundled in the UI) remain
+  reported in the uploaded HTML report but do not reach the CVSS 9 threshold.
+
 ## Known limitations
 - The IDOR fix compares against a lesson-session value. A real application would
   take the identity from its authentication principal (for example Spring Security).
