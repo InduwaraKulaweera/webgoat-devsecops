@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <!--
+    False positive: org.ruby-lang:prism-parser-api and prism-parser-wasm are Java libraries
+    (transitive dependencies of asciidoctorj/jruby) that parse Ruby source. Dependency-Check
+    matches it by name to the CPE for the Ruby *interpreter* (ruby-lang:ruby) and
+    reports 2008-era Ruby interpreter CVEs (CVE-2008-2662, CVE-2008-2663, ...) that
+    do not apply to this library. Only this CPE match for these two artifacts is
+    suppressed; every other finding stays active.
+  -->
+  <suppress>
+    <notes>Name-based CPE mismatch: Java prism parser libraries (api, wasm) vs the Ruby interpreter.</notes>
+    <gav regex="true">^org\.ruby-lang:prism-parser-(api|wasm):.*$</gav>
+    <cpe>cpe:/a:ruby-lang:ruby</cpe>
+  </suppress>
+</suppressions>
