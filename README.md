@@ -120,6 +120,13 @@ Dependency-Check findings handled after the first full scan (CVSS >= 9 blocks th
 - Lower-severity findings (old jQuery, jQuery UI, Bootstrap 3 bundled in the UI) remain
   reported in the uploaded HTML report but do not reach the CVSS 9 threshold.
 
+Dependency-Check and the NVD: the NVD REST API is sometimes unavailable (HTTP 503). The
+workflow updates the NVD database in its own step, retries the API once, and only if the
+API is still returning 5xx falls back to dependency-check's own NVD data-feed mirror
+(rebuilt about every 24 hours, so that data can be up to ~1 day old). An invalid key or any
+other error fails the step. The scan itself runs offline against the saved database and
+still fails on any dependency with CVSS >= 9.
+
 ## Known limitations
 - The IDOR fix compares against a lesson-session value. A real application would
   take the identity from its authentication principal (for example Spring Security).

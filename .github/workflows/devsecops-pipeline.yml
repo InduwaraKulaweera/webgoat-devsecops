@@ -70,9 +70,13 @@ jobs:
           restore-keys: |
             odc-data-
 
-      # 2) Update the database. The NVD API is sometimes unavailable (HTTP 5xx), so this
-      #    step retries ONLY on a 5xx from the NVD. It fails if the update never succeeds,
-      #    so a gate result is never produced from an incomplete database.
+      # 2) Update the database.
+      #    First choice: the NVD REST API (the key is used here). If the NVD API keeps
+      #    returning HTTP 5xx, fall back to dependency-check's own NVD data-feed mirror
+      #    (documented in the plugin's "Mirroring" docs). That mirror is rebuilt about once
+      #    every 24 hours, so in this fallback the data can be up to ~1 day old.
+      #    Any other failure (for example an invalid key) fails the step immediately, and
+      #    a gate result is never produced from an incomplete database.
       - name: Update NVD database
         working-directory: ./WebGoat
         env:
@@ -85,24 +89,33 @@ jobs:
           fi
 
           chmod +x mvnw
-          for attempt in 1 2 3; do
+          DATA_DIR="$GITHUB_WORKSPACE/.odc-data"
+          MIRROR='https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz'
+
+          for attempt in 1 2; do
             set +e
             ./mvnw org.owasp:dependency-check-maven:13.0.0:update-only \
               -DnvdApiKey="$KEY" \
-              -DdataDirectory="$GITHUB_WORKSPACE/.odc-data" 2>&1 | tee dependency-check-update.log
+              -DdataDirectory="$DATA_DIR" 2>&1 | tee dependency-check-update.log
             status=${PIPESTATUS[0]}
             set -e
 
             if [ "$status" -eq 0 ]; then
               exit 0
             fi
-            if grep -Eq "NVD Returned Status Code: 5[0-9][0-9]" dependency-check-update.log && [ "$attempt" -lt 3 ]; then
-              echo "NVD returned a 5xx error (attempt $attempt of 3); waiting 10 minutes before retrying..."
-              sleep 600
-            else
+            if ! grep -Eq "NVD Returned Status Code: 5[0-9][0-9]" dependency-check-update.log; then
               exit "$status"
             fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "NVD API returned a 5xx error (attempt $attempt of 2); waiting 2 minutes before retrying..."
+              sleep 120
+            fi
           done
+
+          echo "::warning::NVD API unavailable (HTTP 5xx). Falling back to the dependency-check NVD mirror; data may be up to ~24 hours old."
+          ./mvnw org.owasp:dependency-check-maven:13.0.0:update-only \
+            -DnvdDatafeedUrl="$MIRROR" \
+            -DdataDirectory="$DATA_DIR"
 
       # 3) Save the database. Runs only if the update step succeeded (default `if: success()`),
       #    and BEFORE the scan, so a red scan (real findings) still seeds the cache.
