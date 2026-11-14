@@ -61,18 +61,19 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Keeps the NVD database between runs so later runs only need a small update.
-      # actions/cache saves ONLY when the whole job succeeded, so a half-downloaded
-      # database from a failed run is never cached.
-      - name: Cache Dependency-Check NVD data
-        uses: actions/cache@v4
+      # 1) Restore the NVD database saved by an earlier successful update.
+      - name: Restore Dependency-Check NVD database
+        uses: actions/cache/restore@v4
         with:
-          path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: depcheck-data-${{ github.run_id }}
+          path: .odc-data
+          key: odc-data-${{ github.run_id }}
           restore-keys: |
-            depcheck-data-
+            odc-data-
 
-      - name: OWASP Dependency-Check
+      # 2) Update the database. The NVD API is sometimes unavailable (HTTP 5xx), so this
+      #    step retries ONLY on a 5xx from the NVD. It fails if the update never succeeds,
+      #    so a gate result is never produced from an incomplete database.
+      - name: Update NVD database
         working-directory: ./WebGoat
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -84,30 +85,44 @@ jobs:
           fi
 
           chmod +x mvnw
-
-          # The NVD API is sometimes unavailable (HTTP 5xx). Retry ONLY when the
-          # NVD database update failed with a 5xx status. Real findings (CVSS >= 9),
-          # an invalid key and any other error fail immediately: the gate is not weakened.
           for attempt in 1 2 3; do
             set +e
-            ./mvnw org.owasp:dependency-check-maven:13.0.0:check \
+            ./mvnw org.owasp:dependency-check-maven:13.0.0:update-only \
               -DnvdApiKey="$KEY" \
-              -DsuppressionFile=dependency-check-suppressions.xml \
-              -DfailBuildOnCVSS=9 \
-              -Dformat=HTML 2>&1 | tee dependency-check.log
+              -DdataDirectory="$GITHUB_WORKSPACE/.odc-data" 2>&1 | tee dependency-check-update.log
             status=${PIPESTATUS[0]}
             set -e
 
             if [ "$status" -eq 0 ]; then
               exit 0
             fi
-            if grep -Eq "NVD Returned Status Code: 5[0-9][0-9]" dependency-check.log && [ "$attempt" -lt 3 ]; then
+            if grep -Eq "NVD Returned Status Code: 5[0-9][0-9]" dependency-check-update.log && [ "$attempt" -lt 3 ]; then
               echo "NVD returned a 5xx error (attempt $attempt of 3); waiting 10 minutes before retrying..."
               sleep 600
             else
               exit "$status"
             fi
           done
+
+      # 3) Save the database. Runs only if the update step succeeded (default `if: success()`),
+      #    and BEFORE the scan, so a red scan (real findings) still seeds the cache.
+      - name: Save Dependency-Check NVD database
+        uses: actions/cache/save@v4
+        with:
+          path: .odc-data
+          key: odc-data-${{ github.run_id }}
+
+      # 4) The gate itself: scans using the saved database, no network update.
+      #    Fails on any dependency with CVSS >= 9 (threshold unchanged).
+      - name: OWASP Dependency-Check (gate)
+        working-directory: ./WebGoat
+        run: |
+          ./mvnw org.owasp:dependency-check-maven:13.0.0:check \
+            -DautoUpdate=false \
+            -DdataDirectory="$GITHUB_WORKSPACE/.odc-data" \
+            -DsuppressionFile=dependency-check-suppressions.xml \
+            -DfailBuildOnCVSS=9 \
+            -Dformat=HTML
 
       - name: Upload dependency-check report
         if: always()
